@@ -2,28 +2,21 @@ import pandas as pd
 import numpy as np
 import os
 import logging
-from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.preprocessing import StandardScaler
 
-# Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
-def load_data():
-    """Load dataset Iris dari sklearn."""
-    logger.info("Loading dataset Iris...")
-    iris = load_iris()
-    df = pd.DataFrame(data=iris.data, columns=iris.feature_names)
-    df['target'] = iris.target
-    df['species'] = df['target'].map({0: 'setosa', 1: 'versicolor', 2: 'virginica'})
+def load_data(filepath="winequality_raw.csv"):
+    logger.info("Loading dataset Wine Quality...")
+    df = pd.read_csv(filepath, sep=';')
     logger.info(f"Dataset berhasil dimuat: {df.shape[0]} baris, {df.shape[1]} kolom")
     return df
 
 
 def check_missing_values(df):
-    """Memeriksa dan menangani missing values."""
     logger.info("Memeriksa missing values...")
     missing = df.isnull().sum()
     if missing.sum() > 0:
@@ -36,7 +29,6 @@ def check_missing_values(df):
 
 
 def check_duplicates(df):
-    """Memeriksa dan menghapus duplikasi."""
     logger.info("Memeriksa duplikasi data...")
     duplicates = df.duplicated().sum()
     if duplicates > 0:
@@ -49,7 +41,6 @@ def check_duplicates(df):
 
 
 def remove_outliers(df, columns):
-    """Menghapus outlier menggunakan metode IQR."""
     logger.info("Menghapus outlier menggunakan IQR...")
     initial_rows = len(df)
     for col in columns:
@@ -64,27 +55,14 @@ def remove_outliers(df, columns):
     return df
 
 
-def encode_labels(df):
-    """Encode label target menjadi integer."""
-    logger.info("Encoding label target...")
-    le = LabelEncoder()
-    df['target'] = le.fit_transform(df['species'])
-    logger.info(f"Label encoding selesai. Classes: {list(le.classes_)}")
-    return df, le
-
-
-def scale_features(X_train, X_test):
-    """Melakukan standarisasi fitur."""
-    logger.info("Melakukan feature scaling (StandardScaler)...")
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-    logger.info("Feature scaling selesai.")
-    return X_train_scaled, X_test_scaled, scaler
+def binarize_target(df):
+    logger.info("Mengubah target menjadi biner (0=buruk, 1=baik)...")
+    df['quality'] = (df['quality'] >= 6).astype(int)
+    logger.info(f"Distribusi kelas:\n{df['quality'].value_counts()}")
+    return df
 
 
 def split_data(df, feature_cols, target_col, test_size=0.2, random_state=42):
-    """Membagi data menjadi train dan test set."""
     logger.info(f"Membagi data: test_size={test_size}, random_state={random_state}")
     X = df[feature_cols]
     y = df[target_col]
@@ -95,24 +73,25 @@ def split_data(df, feature_cols, target_col, test_size=0.2, random_state=42):
     return X_train, X_test, y_train, y_test
 
 
-def save_preprocessed_data(X_train, X_test, y_train, y_test, output_dir="iris_preprocessing"):
-    """Menyimpan data yang sudah dipreprocessing."""
+def scale_features(X_train, X_test):
+    logger.info("Melakukan feature scaling (StandardScaler)...")
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    logger.info("Feature scaling selesai.")
+    return X_train_scaled, X_test_scaled, scaler
+
+
+def save_preprocessed_data(X_train, X_test, y_train, y_test, feature_cols, output_dir="winequality_preprocessing"):
     os.makedirs(output_dir, exist_ok=True)
 
-    train_df = pd.DataFrame(X_train, columns=[
-        'sepal length (cm)', 'sepal width (cm)',
-        'petal length (cm)', 'petal width (cm)'
-    ])
-    train_df['target'] = y_train.values
+    train_df = pd.DataFrame(X_train, columns=feature_cols)
+    train_df['quality'] = y_train.values
+    test_df = pd.DataFrame(X_test, columns=feature_cols)
+    test_df['quality'] = y_test.values
 
-    test_df = pd.DataFrame(X_test, columns=[
-        'sepal length (cm)', 'sepal width (cm)',
-        'petal length (cm)', 'petal width (cm)'
-    ])
-    test_df['target'] = y_test.values
-
-    train_path = os.path.join(output_dir, "iris_train.csv")
-    test_path = os.path.join(output_dir, "iris_test.csv")
+    train_path = os.path.join(output_dir, "winequality_train.csv")
+    test_path = os.path.join(output_dir, "winequality_test.csv")
 
     train_df.to_csv(train_path, index=False)
     test_df.to_csv(test_path, index=False)
@@ -122,46 +101,33 @@ def save_preprocessed_data(X_train, X_test, y_train, y_test, output_dir="iris_pr
     return train_path, test_path
 
 
-def run_preprocessing(output_dir="iris_preprocessing"):
-    """Fungsi utama untuk menjalankan seluruh pipeline preprocessing."""
+def run_preprocessing(raw_filepath="winequality_raw.csv", output_dir="winequality_preprocessing"):
     logger.info("=" * 50)
     logger.info("MULAI PREPROCESSING OTOMATIS")
     logger.info("=" * 50)
 
-    # 1. Load data
-    df = load_data()
-
-    # 2. Cek missing values
+    df = load_data(raw_filepath)
     df = check_missing_values(df)
-
-    # 3. Cek duplikasi
     df = check_duplicates(df)
 
-    # 4. Hapus outlier
-    feature_cols = ['sepal length (cm)', 'sepal width (cm)',
-                    'petal length (cm)', 'petal width (cm)']
+    feature_cols = [col for col in df.columns if col != 'quality']
     df = remove_outliers(df, feature_cols)
+    df = binarize_target(df)
 
-    # 5. Encode label
-    df, le = encode_labels(df)
-
-    # 6. Split data
-    X_train, X_test, y_train, y_test = split_data(df, feature_cols, 'target')
-
-    # 7. Scale features
+    X_train, X_test, y_train, y_test = split_data(df, feature_cols, 'quality')
     X_train_scaled, X_test_scaled, scaler = scale_features(X_train, X_test)
-
-    # 8. Simpan hasil
     train_path, test_path = save_preprocessed_data(
-        X_train_scaled, X_test_scaled, y_train, y_test, output_dir
+        X_train_scaled, X_test_scaled, y_train, y_test, feature_cols, output_dir
     )
 
     logger.info("=" * 50)
     logger.info("PREPROCESSING SELESAI")
     logger.info("=" * 50)
-
     return train_path, test_path
 
 
 if __name__ == "__main__":
-    run_preprocessing(output_dir="iris_preprocessing")
+    run_preprocessing(
+        raw_filepath="winequality_raw.csv",
+        output_dir="winequality_preprocessing"
+    )

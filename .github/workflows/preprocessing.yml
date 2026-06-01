@@ -26,7 +26,7 @@ jobs:
       - name: Run Preprocessing
         run: |
           cd preprocessing
-          python automate_Nama-siswa.py
+          python automate_Reinhart-Jens-Robert.py
 
       - name: Upload Preprocessed Dataset
         uses: actions/upload-artifact@v3
