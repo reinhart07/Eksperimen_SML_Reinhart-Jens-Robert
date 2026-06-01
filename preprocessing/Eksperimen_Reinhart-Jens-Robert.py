@@ -17,7 +17,7 @@ from sklearn.preprocessing import StandardScaler
 # ## 2. Data Loading
 
 # %%
-df = pd.read_csv("../../winequality_raw.csv", sep=';')
+df = pd.read_csv("../winequality_raw.csv", sep=';')
 print("Shape dataset:", df.shape)
 df.head()
 
