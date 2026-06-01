@@ -25,8 +25,7 @@ jobs:
 
       - name: Run Preprocessing
         run: |
-          cd preprocessing
-          python automate_Reinhart-Jens-Robert.py
+          python preprocessing/automate_Reinhart-Jens-Robert.py
 
       - name: Upload Preprocessed Dataset
         uses: actions/upload-artifact@v4
